@@ -12,6 +12,8 @@ SKILLS=(
   continue-with-qoder
   continue-with-workbuddy
   continue-with-zcode
+  continue-with-claude
+  continue-with-deepseek
 )
 
 echo "==> 安装打包侧 skill（实体 → ~/.agents/skills/）"
@@ -28,7 +30,7 @@ if [ -d "$HOME/.zcode" ]; then
   for s in "${SKILLS[@]}"; do
     ln -sfn "../../.agents/skills/$s" "$ZCODE_SKILLS/$s"
   done
-  echo "  ✓ 5 个软链就绪"
+  echo "  ✓ 7 个软链就绪"
 else
   echo "  - 未检测到 ~/.zcode，跳过软链（~/.agents/skills 已被 ZCode 官方支持）"
 fi
@@ -56,6 +58,16 @@ detect_and_install "$HOME/.trae"             "continue-generic.md"  "$HOME/.trae
 detect_and_install "$HOME/.qoder"            "continue-generic.md"  "$HOME/.qoder/commands"          "Qoder"
 detect_and_install "$HOME/.qoder-cn"         "continue-generic.md"  "$HOME/.qoder-cn/commands"       "Qoder CN"
 detect_and_install "$HOME/.zcode"            "continue-zcode.md"    "$HOME/.zcode/commands"          "ZCode"
+detect_and_install "$HOME/.claude"           "continue-claude.md"   "$HOME/.claude/commands"         "Claude Code"
+
+# DeepSeek Harness：无文件式命令机制（slash 命令为插件注册制），不安装任何全局文件
+if command -v dsh >/dev/null 2>&1 || [ -d "${DSH_HOME:-$HOME/deepseek-harness}" ] || [ -d "$HOME/.dsh" ]; then
+  echo "  ✓ DeepSeek Harness → 无需安装命令文件；交接用 dsh headless 一行命令（见 skill）"
+  installed=$((installed + 1))
+else
+  echo "  - DeepSeek Harness 未检测到，跳过"
+  skipped=$((skipped + 1))
+fi
 
 # WorkBuddy：唯一用全局 skill（无 command 机制）
 if [ -d "$HOME/.workbuddy" ]; then
@@ -69,6 +81,6 @@ else
 fi
 
 echo
-echo "==> 完成：打包侧 skill 5 个；一键命令安装 $installed 个、跳过 $skipped 个（未安装的工具）"
+echo "==> 完成：打包侧 skill 7 个；一键命令安装 $installed 个、跳过 $skipped 个（未安装的工具）"
 echo "    之后在新项目中交接时无需重跑本脚本——skill 会自动检测并复用全局命令。"
-echo "    验证：新开会话说「交接给 OpenCode / Trae / Qoder / WorkBuddy / ZCode」即可触发。"
+echo "    验证：新开会话说「交接给 OpenCode / Trae / Qoder / WorkBuddy / ZCode / Claude / DeepSeek」即可触发。"
