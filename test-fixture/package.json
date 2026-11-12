@@ -1,0 +1,13 @@
+{
+  "name": "string-utils",
+  "version": "0.2.0",
+  "description": "Small string utility library",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint src tests"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  }
+}
