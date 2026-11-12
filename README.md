@@ -180,4 +180,5 @@ rm -rf ~/.agents/skills/continue-with-{opencode,trae,qoder,workbuddy,zcode} \
 - **重复运行 install.sh 会覆盖我的自定义修改吗？** 会——脚本以仓库模板为准整体刷新。若你手工改过全局命令，先备份；日常交接场景 skill 的幂等检测不会覆盖你的修改（仅本脚本会）。
 - **同一个项目交接给多个工具？** 五个 skill 读写同一份 `.handoff/HANDOFF.md`，只有一份数据不会漂移；任意工具 `/continue` 皆可接续。
 - **源工具必须在清单里吗？** 不必。打包侧只要求 harness 能读写文件与执行 shell；交接文档由模型从当前会话提炼，与具体 harness 无关。
+- **自定义 `/continue` 会覆盖工具原生命令吗？** 不会。七个目标工具均无原生 `/continue` 斜杠命令（Claude Code 的恢复是 `/resume`，OpenCode 是 `/sessions`，DeepSeek Harness 连自定义命令机制都没有），互不冲突；`claude --continue`、`opencode -c` 那类是 shell flag，与 TUI 斜杠命令属不同命名空间。注意语义区分：本仓库的 `/continue` 指「按交接文档继续工作」，不是「恢复上次会话」——恢复会话请用各工具原生入口。
 - **方向支持反向吗？** 当前仅单向（任意 harness → 5 个目标工具）。反向导出（OpenCode `session export`、WorkBuddy `~/.workbuddy/projects/` 的 jsonl 等）在 `references/*-cheatsheet.md` 中留有调研记录，尚未实现。
