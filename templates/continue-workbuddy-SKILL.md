@@ -3,14 +3,16 @@ name: continue
 description: 读取当前项目 .handoff/HANDOFF.md 交接文档，继续上一个 AI 编码工具的工作。当用户说"继续交接 / 接手之前的工作 / continue handoff"或输入 /continue 时使用。
 userInvocable: true
 ---
-<!-- continue-with-x: protocol=2 -->
+<!-- continue-with-x: protocol=3 -->
 
 1. 用读文件工具完整读取当前项目根目录的 `.handoff/HANDOFF.md`——这是从另一个 AI 编码工具交接过来的完整工作上下文。文件不存在时，告知用户需先在原 AI 工具中运行交接 skill 生成，不要凭空猜测任务。
 2. **设备判定**：从元数据表「设备指纹」行读交出方指纹（形如 `3f2a9c1b7d4e` · linux-x86_64），用同一算法算本机指纹：
 
    ```bash
-   fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"   # 不读 /etc 等外部文件，沙箱可用
-      if command -v sha256sum >/dev/null 2>&1; then
+   fid_os=$(uname -s | tr 'A-Z' 'a-z')
+   case "$fid_os" in mingw*|msys*|cygwin*) fid_os=windows ;; esac
+   fid_input="$(hostname)|$(whoami)|$fid_os|$(uname -m)"
+   if command -v sha256sum >/dev/null 2>&1; then
      fid=$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)
    elif command -v shasum >/dev/null 2>&1; then
      fid=$(printf '%s' "$fid_input" | shasum -a 256 | cut -c1-12)
@@ -18,6 +20,15 @@ userInvocable: true
      fid=$(printf '%s' "$fid_input" | python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:12])')
    fi
    echo "$fid"
+   ```
+
+   Windows 没有 bash 时改用 PowerShell：
+
+   ```powershell
+   $os='windows'; $arch=$env:PROCESSOR_ARCHITECTURE.ToLower().Replace('amd64','x86_64')
+   $s="$env:COMPUTERNAME|$env:USERNAME|$os|$arch"
+   $h=[Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($s))
+   ([BitConverter]::ToString($h) -replace '-','').ToLower().Substring(0,12)
    ```
 
    - 一致 → 本机交接，跳到第 4 步（跳过环境扫描；任务中真遇缺失再处理）

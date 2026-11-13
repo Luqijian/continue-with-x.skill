@@ -19,7 +19,7 @@
 - 用户级 `~/.claude/commands/*.md`；项目级 `<repo>/.claude/commands/`。文件名即命令名（`continue.md` → `/continue`）。
 - frontmatter 键：`description` / `argument-hint` / `allowed-tools` / `model`。
 - **`$ARGUMENTS` 与 `$1..$n` 参数替换**：支持。
-- **`` !`cmd` `` bash 注入**：Claude Code 原生行为，命令发送前预执行并把输出注入 prompt（仅交互模式生效）。`` !`cat .handoff/HANDOFF.md` `` 预注入与 OpenCode 同源同语义——模板可直接对齐 opencode 版。
+- **`` !`cmd` `` bash 注入**：Claude Code 原生行为，命令发送前预执行并把输出注入 prompt（仅交互模式生效）。⚠️ **Windows 上该块由 PowerShell 执行**，PS 5.1 不支持 `||`、`2>/dev/null`，带兜底的长命令会直接 ParserError——因此本仓库模板**不使用** `!` 注入，统一指示模型读文件。
 - `@path` 引用会展开文件内容；但交接命令里附件一律写成"用读文件工具打开 <路径>"的明确指示，比 `@` 更稳。
 - 项目级与全局同名命令**共存**（`/help` 中分别列出）：若项目内存在指向历史路径的旧版 continue.md，删除并告知用户，避免歧义。
 
@@ -37,12 +37,12 @@
 
 | 场景 | 用法 |
 |---|---|
-| 日常接续（推荐默认） | `cd <项目> && claude` → `/continue`（全局 `~/.claude/commands/continue.md`，`` !`cat` `` 预注入 HANDOFF.md） |
+| 日常接续（推荐默认） | `cd <项目> && claude` → `/continue`（全局 `~/.claude/commands/continue.md`；模板指示模型读 HANDOFF.md，不用 `!` 注入） |
 | 无头单发 | `cd <项目> && claude -p "先完整阅读 .handoff/HANDOFF.md，按其「任务规划」继续交接工作"` |
 | 兜底 | 对话粘贴「请完整读取 .handoff/HANDOFF.md，按其任务规划继续」 |
 | 安装验证 | `ls ~/.claude/commands/continue.md` 应存在且引用 `.handoff/HANDOFF.md` |
 
 ## 实现备注
 
-- Claude Code 是 OpenCode `!` 注入与 `$ARGUMENTS` 语法的源头，两者的 continue 模板高度同构——但 ZCode 模板**不能**复用（ZCode 的 `!` 不预执行），不要跨抄。
+- Claude Code 与 OpenCode 都支持 `$ARGUMENTS`，两者模板同构；但 `!` 注入在 Windows/PowerShell 下不可用，故本仓库两版模板均改为读文件。ZCode 的 `!` 不预执行，同样不用。
 - `~/.claude/settings*.json` 含 provider 凭据配置——交接产物与文档示例不要引用该目录下的配置文件。

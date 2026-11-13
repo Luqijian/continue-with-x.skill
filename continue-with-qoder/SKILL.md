@@ -112,7 +112,7 @@ node -v 2>/dev/null; npm -v 2>/dev/null; pnpm -v 2>/dev/null; python3 --version 
 
 对检测到的每个版本目录（`~/.qoder/commands/`；存在 `~/.qoder-cn/` 时加 `~/.qoder-cn/commands/`）：
 
-- `continue.md` 已存在、内容引用 `.handoff/HANDOFF.md` 且含 `protocol=2` 标记 → 已就位，跳过（不要覆盖用户的自定义修改）
+- `continue.md` 已存在、内容引用 `.handoff/HANDOFF.md` 且含 `protocol=3` 标记 → 已就位，跳过（不要覆盖用户的自定义修改）
 - `continue.md` 已存在但为旧版（无标记，不具备跨设备环境检查协议）→ 用下方模板覆盖升级，并告知用户
 - 否则写入：
 
@@ -121,15 +121,17 @@ node -v 2>/dev/null; npm -v 2>/dev/null; pnpm -v 2>/dev/null; python3 --version 
 name: continue
 description: 读取交接文档继续上一个 AI 工具的工作
 ---
-<!-- continue-with-x: protocol=2 -->
+<!-- continue-with-x: protocol=3 -->
 请按以下步骤接手当前项目的工作：
 
 1. 用读文件工具完整读取项目根目录的 `.handoff/HANDOFF.md`——这是从另一个 AI 编码工具交接过来的工作上下文。文件不存在时，告知用户需先在原 AI 工具中运行交接 skill 生成，不要凭空猜测任务。
 2. **设备判定**：从元数据表「设备指纹」行读交出方指纹（形如 `3f2a9c1b7d4e` · linux-x86_64），用同一算法算本机指纹：
 
    ```bash
-   fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"   # 不读 /etc 等外部文件，沙箱可用
-      if command -v sha256sum >/dev/null 2>&1; then
+   fid_os=$(uname -s | tr 'A-Z' 'a-z')
+   case "$fid_os" in mingw*|msys*|cygwin*) fid_os=windows ;; esac
+   fid_input="$(hostname)|$(whoami)|$fid_os|$(uname -m)"
+   if command -v sha256sum >/dev/null 2>&1; then
      fid=$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)
    elif command -v shasum >/dev/null 2>&1; then
      fid=$(printf '%s' "$fid_input" | shasum -a 256 | cut -c1-12)
@@ -137,6 +139,15 @@ description: 读取交接文档继续上一个 AI 工具的工作
      fid=$(printf '%s' "$fid_input" | python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:12])')
    fi
    echo "$fid"
+   ```
+
+   Windows 没有 bash 时改用 PowerShell：
+
+   ```powershell
+   $os='windows'; $arch=$env:PROCESSOR_ARCHITECTURE.ToLower().Replace('amd64','x86_64')
+   $s="$env:COMPUTERNAME|$env:USERNAME|$os|$arch"
+   $h=[Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($s))
+   ([BitConverter]::ToString($h) -replace '-','').ToLower().Substring(0,12)
    ```
 
    - 一致 → 本机交接，跳到第 4 步（跳过环境扫描；任务中真遇缺失再处理）
@@ -152,8 +163,9 @@ description: 读取交接文档继续上一个 AI 工具的工作
 
    ```bash
    reqid=$(sed -n '/^### 7\.1/,/^### 7\.2/p' .handoff/HANDOFF.md | grep '^|' \
-     | awk -F'|' '{for(i=2;i<=6;i++) gsub(/^[ \t]+|[ \t]+$/,"",$i)} $2!="类型" && $2!~/^-+$/ {print $2"|"$3"|"$6}' | sort \
-     | awk 'NR>1{printf "\n"} {printf "%s",$0}' \
+     | awk -F'|' '{for(i=2;i<=6;i++) gsub(/^[ 	]+|[ 	]+$/,"",$i)} $2!="类型" && $2!~/^-+$/ {print $2"|"$3"|"$6}' | sort \
+     | awk 'NR>1{printf "
+"} {printf "%s",$0}' \
      | { command -v sha256sum >/dev/null 2>&1 && sha256sum || { command -v shasum >/dev/null 2>&1 && shasum -a 256 || python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'; }; } | cut -c1-12)
    ```
 4. 文中引用的 `.handoff/attachments/` 附件逐个打开查看，不要跳过。
@@ -210,7 +222,7 @@ qoder://aicoding.aicoding-deeplink/chat?text=%2Fcontinue&mode=agent&isNewChat=tr
 - [ ] 「关键文件」每条都说明了作用与入口位置
 - [ ] 元数据表含设备指纹（12 位哈希 · OS-arch 明文，无主机名/用户名）
 - [ ] 7.1 清单每条带幂等只读检测命令，且无任何密钥值
-- [ ] 全局命令文件 frontmatter 完整（description 必填），正文引用 `.handoff/HANDOFF.md`、含 `protocol=2` 标记
+- [ ] 全局命令文件 frontmatter 完整（description 必填），正文引用 `.handoff/HANDOFF.md`、含 `protocol=3` 标记
 - [ ] 使用说明中的 `<项目目录>` 已替换为实际路径
 
 ---

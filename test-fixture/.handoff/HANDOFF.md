@@ -104,7 +104,9 @@ tests/          vitest 测试（仅 slugify.test.ts，debounce 测试待写）
 设备指纹算法（与命令模板一致）：
 
 ```bash
-fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"   # 不读 /etc 等外部文件，沙箱可用
+fid_os=$(uname -s | tr 'A-Z' 'a-z')
+case "$fid_os" in mingw*|msys*|cygwin*) fid_os=windows ;; esac
+fid_input="$(hostname)|$(whoami)|$fid_os|$(uname -m)"
 if command -v sha256sum >/dev/null 2>&1; then
   fid=$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)
 elif command -v shasum >/dev/null 2>&1; then

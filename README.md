@@ -158,12 +158,12 @@ DeepSeek Harness 除外：dsh 无自定义命令机制，接续用 `dsh headless
 
 | 工具 | 一键载体 | 关键约束 |
 |---|---|---|
-| OpenCode | 全局 command，`` !`cat` `` 提交前预注入 | `@file` 在模板中不展开；项目级命令会**覆盖**全局 |
+| OpenCode | 全局 command（模板指示模型读文件） | `@file` 在模板中不展开；项目级命令会**覆盖**全局；不用 `!` 注入（Windows 会报错） |
 | Trae | 全局 command（frontmatter + 指令） | 无参数替换机制；会话库 SQLCipher 加密，不可外部注入 |
 | Qoder | 全局 command（description 必填） | 引用语法是 `@file` 非 `#`；用户级覆盖项目级；Deeplink 可预填对话 |
 | WorkBuddy | 全局 skill（`userInvocable`） | **无 command 机制**；skill 发现根不含项目级目录；禁写 `.workbuddy/memory/`（持久记忆） |
 | ZCode | 全局 command，`$ARGUMENTS` 支持 | `!` 注入块**不预执行**（降级为 Bash 审批），改为直接指示模型读文件 |
-| Claude Code | 全局 command，`!` 注入预执行 + `$ARGUMENTS`（该注入语法的原生源头） | CLAUDE.md 每轮注入勿污染；项目级命令与全局同名**共存**，旧版需清理 |
+| Claude Code | 全局 command + `$ARGUMENTS`（模板不用 `!` 注入） | Windows 上 `!` 块走 PowerShell，`||` 会解析失败；CLAUDE.md 每轮注入勿污染；项目级与全局同名**共存** |
 | DeepSeek Harness | **无全局命令可装**（slash 命令为插件注册制，未知 `/xxx` 被拒绝） | 一键载体是 `dsh headless` 一行命令 / `dsh web` + 兜底提示词；headless 单发即退出，写文件需 `--permission-mode workspace-write` |
 
 所有工具的兜底方式统一：全局命令缺失/失效时，在目标工具粘贴固定提示词「**请完整读取 .handoff/HANDOFF.md，按其任务规划继续交接的工作**」。
@@ -200,8 +200,8 @@ continue-with-x.skill/
 # ZCode：应列出 continue 命令与 7 个 skill
 zcode skills list && zcode commands list
 
-# 命令模板版本（应含 protocol=2，否则为旧版需重跑 install.sh）
-grep -l 'protocol=2' ~/.config/opencode/commands/continue.md ~/.zcode/commands/continue.md \
+# 命令模板版本（应含 protocol=3，否则为旧版需重跑 install.sh）
+grep -l 'protocol=3' ~/.config/opencode/commands/continue.md ~/.zcode/commands/continue.md \
   ~/.claude/commands/continue.md 2>/dev/null
 
 # 设备指纹自测（同一设备连续两次输出应一致，12 位十六进制；不读 /etc，沙箱可用）
