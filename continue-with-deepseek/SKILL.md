@@ -59,6 +59,22 @@ ls -la
 
 目录结构快照（2 层即可，排除 node_modules/.git/.venv 等噪音）。
 
+设备指纹与交出方环境（跨设备接续用，算法细节见 `references/handoff-format.md`）：
+
+```bash
+# 设备指纹（接收方接续时据此判定本机/跨设备；哈希入文档，明文仅 OS/arch）
+fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"
+[ -r /etc/machine-id ] && fid_input="$(cat /etc/machine-id)|$fid_input"
+printf '指纹=%s · %s-%s\n' "$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)" \
+  "$(uname -s | tr 'A-Z' 'a-z')" "$(uname -m)"
+# 无 sha256sum 的平台（如 macOS）按 handoff-format.md 回退 shasum / python3
+
+# 交出方已验证版本（按项目技术栈选用，结果写进 7.1 末行）
+node -v 2>/dev/null; npm -v 2>/dev/null; pnpm -v 2>/dev/null; python3 --version 2>/dev/null
+```
+
+环境需求推导（写 HANDOFF 7.1 清单）：从技术栈与常用命令推导接手**必需**项（通常 ≤6 条），类型枚举 runtime / pkgmgr / tool / service / env-var / path，每条配**幂等只读**检测命令（如 `node -v`、`pg_isready -h 127.0.0.1 -p 5432`、`test -n "${DATABASE_URL:-}"`）；`env-var` 只记名称，**禁止记录任何密钥/token/密码的值**。
+
 ## Step 2：会话自省提炼（质量核心）
 
 从**当前对话**中提炼以下内容（你能记住对话，这是任何 harness 都可行的普适路径）：
@@ -81,7 +97,9 @@ ls -la
 2. 按 `references/handoff-format.md` 的模板写 `HANDOFF.md`。
 3. 把 Step 1 收集到的大体积证据写入 `attachments/`（git-diff.patch、大文件摘录等）；小而关键的信息直接内联进正文，不要拆文件。
 4. **增量交接**：若 `.handoff/HANDOFF.md` 已存在，先读旧文档，把仍然有效的历史要点（背景、决策、已完成项）继承进新文档，标注本轮交接时间戳，覆盖写入。旧 attachments 直接覆盖。
-5. 若项目尚无 `.gitignore` 条目覆盖 `.handoff/`，建议用户追加（一次性个人上下文，默认不入库；用户想随仓库分发给协作者除外）。
+5. **同步方式二选一询问**：问用户 `.handoff/` 打算怎么跨设备——
+   - **git 提交 / 文件同步工具**（Syncthing、rsync 等）：不要加入 `.gitignore`，交接文档需随项目走（git 方式注意：文档只含设备指纹哈希、无主机名/用户名明文；介意者可只提交 `HANDOFF.md`、忽略 `attachments/`）
+   - **仅本机使用**：建议把 `.handoff/` 加入 `.gitignore`（一次性个人上下文，默认不入库）
 
 ## Step 4：确认接续入口可用（不安装任何全局文件）
 
@@ -131,6 +149,8 @@ cd <项目目录> && dsh web
 - [ ] 无占位符残留（`TODO`、`<...>`、`...`）
 - [ ] 「任务规划」每条都是可独立执行的动词开头条目
 - [ ] 「关键文件」每条都说明了作用与入口位置
+- [ ] 元数据表含设备指纹（12 位哈希 · OS-arch 明文，无主机名/用户名）
+- [ ] 7.1 清单每条带幂等只读检测命令，且无任何密钥值
 - [ ] 使用说明中的 `<项目目录>` 已替换为实际路径；一行命令中的引号完整
 - [ ] 已向用户说明：dsh **没有** `/continue`，接续入口是 `dsh headless` / `dsh web` + 兜底提示词
 
@@ -150,6 +170,9 @@ cd <项目目录> && dsh headless "只输出 .handoff/HANDOFF.md 的各节一级
 - **不要用 `dsh plugin add` 硬装命令插件**：那是 npm 包级的 Cordis 插件安装（`dsh plugin --profile <name> add <pkg>`，内部转发 pnpm），远超本 skill 的文件拖放边界，且 developer preview 的插件 API 随版本破坏性变更。
 - **headless 是单发不是常驻**：`dsh headless` 回答一次就退出，长任务交互推进用 `dsh web`；要续会话用 `--session-id <id>`。
 - **权限默认偏保守**：headless 默认权限预设可能禁止写文件，交接任务涉及改动时显式加 `--permission-mode workspace-write`（必要时 `--add-dir <path>`）。
+- **密钥只记位置不记值**：7.1 的 `env-var` 条目只记名称与存在性检测命令——HANDOFF.md 可能随 git 入库，写值等于泄密。
+- **跨设备后项目路径以接收侧 cwd 为准**：元数据「项目路径」是交出方视角，跨设备时通常不同；接手侧以当前工作目录与 `git status` 实测为准。
+- **指纹哈希不是安全边界**：只用于判定「同一设备+同一用户」；改 hostname、容器复制 machine-id 会误判为跨设备，后果仅是多一次环境检查。
 - **HANDOFF.md 是快照不是活文档**：dsh 侧工作推进后文档会过时，用户再次换工具时重跑本 skill 即可。
 - 反向导出（dsh → 其他工具）不在本 skill 范围；交接包格式保持工具中性，为未来扩展预留。
 - DeepSeek Harness 机制细节与 CLI 参数速查见 `references/deepseek-cheatsheet.md`。

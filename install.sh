@@ -16,6 +16,10 @@ SKILLS=(
   continue-with-deepseek
 )
 
+echo "==> 准备跨设备环境缓存目录"
+mkdir -p "$HOME/.continue-with-x"
+echo "  ✓ ~/.continue-with-x/（本机环境记录，跨设备接续时自动读写；不入库、不跨设备同步）"
+
 echo "==> 安装打包侧 skill（实体 → ~/.agents/skills/）"
 mkdir -p "$AGENTS_SKILLS"
 for s in "${SKILLS[@]}"; do
@@ -83,4 +87,6 @@ fi
 echo
 echo "==> 完成：打包侧 skill 7 个；一键命令安装 $installed 个、跳过 $skipped 个（未安装的工具）"
 echo "    之后在新项目中交接时无需重跑本脚本——skill 会自动检测并复用全局命令。"
+echo "    跨设备接续：把项目连同 .handoff/ 用 git / Syncthing / rsync 同步到另一端，"
+echo "    在那边 /continue 即可——接收方会比对设备指纹，判定本机/跨设备并检查开发环境。"
 echo "    验证：新开会话说「交接给 OpenCode / Trae / Qoder / WorkBuddy / ZCode / Claude / DeepSeek」即可触发。"

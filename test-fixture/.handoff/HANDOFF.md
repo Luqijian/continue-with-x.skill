@@ -7,13 +7,15 @@
 | 项目路径 | /home/transpeed/Development/continue-with-x.skill/test-fixture |
 | git 分支 | master @ b74167b（1 个未提交文件：src/debounce.ts） |
 | 交接轮次 | 第 1 轮 |
+| 设备指纹 | `dem0a5c1b7d4` · linux-x64（**演示值**） |
 
 ## 0. 给接手模型的指令
 
 先读完本文件全部内容，再按顺序做：
 
-1. 运行 `git status` 核对现状与本文件描述是否一致，有出入先向用户说明
-2. 从「任务规划」第一条未完成项开始工作
+1. **设备判定**：按文末算法重算本机指纹，与元数据表「设备指纹」比对。本例是演练产物，指纹为**演示值**，在任何真实设备上都会判为「跨设备」——走 7.1 清单做一次环境检查属**预期行为**（清单只含 node/npm，通常直接满足并写入 `~/.continue-with-x/` 缓存）
+2. 运行 `git status` 核对现状与本文件描述是否一致，有出入先向用户说明
+3. 从「任务规划」第一条未完成项开始工作
 
 ## 1. 任务背景与目标
 
@@ -82,9 +84,33 @@ tests/          vitest 测试（仅 slugify.test.ts，debounce 测试待写）
 
 ## 7. 环境与工作流
 
+### 7.1 开发环境需求（跨设备接续时据此检查）
+
+| 类型 | 需求 | 检测命令 | 约束 | 必需 |
+|---|---|---|---|---|
+| runtime | node | `node -v` | ≥18 | 是 |
+| pkgmgr | npm | `npm -v` | 任意 | 是 |
+
+交出方已验证版本：node 22.x / npm 10.x（linux-x64）
+
+### 7.2 工作流与环境事实
+
 - 依赖未安装：先 `npm install` 再 `npm test`
 - Node ESM 项目：相对导入必须带 `.js` 扩展名，漏写会在运行时报错
 - 无 .gitignore：`node_modules/` 目前靠手动排除，接手后建议补一个（列入任务规划之外的顺手项，先问用户）
+
+---
+
+设备指纹算法（与命令模板一致）：
+
+```bash
+fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"
+[ -r /etc/machine-id ] && fid_input="$(cat /etc/machine-id)|$fid_input"
+fid=$(printf '%s' "$fid_input" | sha256sum 2>/dev/null | cut -c1-12) \
+  || fid=$(printf '%s' "$fid_input" | shasum -a 256 2>/dev/null | cut -c1-12) \
+  || fid=$(printf '%s' "$fid_input" | python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:12])')
+echo "$fid"
+```
 
 ## 8. 风险与已知坑
 
