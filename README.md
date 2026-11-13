@@ -204,10 +204,9 @@ zcode skills list && zcode commands list
 grep -l 'protocol=2' ~/.config/opencode/commands/continue.md ~/.zcode/commands/continue.md \
   ~/.claude/commands/continue.md 2>/dev/null
 
-# 设备指纹自测（同一设备连续两次输出应一致，12 位十六进制）
+# 设备指纹自测（同一设备连续两次输出应一致，12 位十六进制；不读 /etc，沙箱可用）
 fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"
-[ -r /etc/machine-id ] && fid_input="$(cat /etc/machine-id)|$fid_input"
-printf '%s\n' "$fid_input" | sha256sum | cut -c1-12
+printf '%s' "$fid_input" | sha256sum | cut -c1-12
 
 # OpenCode：无头冒烟（在含 .handoff/ 的项目里，会消耗一次模型调用）
 opencode run --command continue "只输出你收到的交接内容的一级标题清单"
@@ -246,7 +245,14 @@ rm -rf ~/.continue-with-x
 - **同一个项目交接给多个工具？** 五个 skill 读写同一份 `.handoff/HANDOFF.md`，只有一份数据不会漂移；任意工具 `/continue` 皆可接续。
 - **源工具必须在清单里吗？** 不必。打包侧只要求 harness 能读写文件与执行 shell；交接文档由模型从当前会话提炼，与具体 harness 无关。
 - **跨设备接续会不会每次都扫环境？** 不会。指纹一致（同设备同用户）直接跳过；跨设备也只是「查缓存 → 查工具记忆 → 只跑清单里的检测命令」，命中缓存后连检测都省了。
-- **改了主机名 / 换了容器，会被当成跨设备吗？** 会。指纹含 hostname 与 machine-id，这类变更会判为跨设备——代价只是多一次环境检查，不影响交接本身。
+- **改了主机名 / 换了容器，会被当成跨设备吗？** 会。指纹 = `hostname|用户名|OS|arch` 的哈希（不读 `/etc` 等外部文件，沙箱内也能算），这类变更会判为跨设备——代价只是多一次环境检查。反过来，两台同名主机 + 同名用户的机器会被判为同一设备，此时不扫环境，由任务中的缺环境兜底处理。
+- **沙箱/无头模式下缓存还能用吗？** 缓存文件在 `~/.continue-with-x/`（项目外）。若 harness 拒绝访问项目外路径（如 `opencode run` 默认 auto-reject external_directory），协议会降级为「未命中 + 不写缓存」，其余照常。opencode 想启用缓存复用，在 `~/.config/opencode/opencode.json` 加：
+
+  ```json
+  { "permission": { "external_directory": { "~/.continue-with-x/*": "allow" } } }
+  ```
+
+  其他 harness 同理，放行该目录即可；交互式会话中通常只需在弹窗里点一次允许。
 - **跨设备时项目路径不同怎么办？** 元数据里的路径只是交出方视角，接收方以当前 cwd 与 `git status` 为准；skill 也会提示不要照抄旧路径。
 - **环境缓存会随项目同步走吗？** 不会。`~/.continue-with-x/env-cache.md` 在本机用户目录下，按「设备 + 需求集」两级缓存，不随 git、也不建议纳入任何同步工具。
 - **自定义 `/continue` 会覆盖工具原生命令吗？** 不会。七个目标工具均无原生 `/continue` 斜杠命令（Claude Code 的恢复是 `/resume`，OpenCode 是 `/sessions`，DeepSeek Harness 连自定义命令机制都没有），互不冲突；`claude --continue`、`opencode -c` 那类是 shell flag，与 TUI 斜杠命令属不同命名空间。注意语义区分：本仓库的 `/continue` 指「按交接文档继续工作」，不是「恢复上次会话」——恢复会话请用各工具原生入口。

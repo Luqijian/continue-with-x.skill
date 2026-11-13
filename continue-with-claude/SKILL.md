@@ -63,8 +63,7 @@ ls -la
 
 ```bash
 # 设备指纹（接收方 /continue 据此判定本机/跨设备；哈希入文档，明文仅 OS/arch）
-fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"
-[ -r /etc/machine-id ] && fid_input="$(cat /etc/machine-id)|$fid_input"
+fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"   # 不读 /etc 等外部文件，沙箱可用
 if command -v sha256sum >/dev/null 2>&1; then
   fid=$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)
 elif command -v shasum >/dev/null 2>&1; then
@@ -133,9 +132,8 @@ argument-hint: [补充指令]
 1. **设备判定**：从上面元数据表「设备指纹」行读交出方指纹（形如 `3f2a9c1b7d4e` · linux-x86_64），用同一算法算本机指纹：
 
    ```bash
-   fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"
-   [ -r /etc/machine-id ] && fid_input="$(cat /etc/machine-id)|$fid_input"
-   if command -v sha256sum >/dev/null 2>&1; then
+   fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"   # 不读 /etc 等外部文件，沙箱可用
+      if command -v sha256sum >/dev/null 2>&1; then
      fid=$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)
    elif command -v shasum >/dev/null 2>&1; then
      fid=$(printf '%s' "$fid_input" | shasum -a 256 | cut -c1-12)
@@ -148,9 +146,9 @@ argument-hint: [补充指令]
    - 一致 → 本机交接，跳到第 3 步（跳过环境扫描；任务中真遇缺失再处理）
    - 不一致或元数据无该行 → 跨设备/跨用户交接，执行第 2 步
 2. **跨设备环境检查**（仅当上一步判定不一致）：
-   a. 先查本机缓存 `~/.continue-with-x/env-cache.md`：有「当前设备指纹 + 本次需求集」记录则复用结论与用户此前提供的路径，不再扫描
+   a. 先用 Bash `cat ~/.continue-with-x/env-cache.md` 查本机缓存（避免外部目录读工具限制）：有「当前设备指纹 + 本次需求集」记录则复用结论与用户此前提供的路径，不再扫描；该路径不可读写（沙箱/权限拒绝）时视为未命中，且本次不写缓存，直接继续
    b. 未命中 → 查当前工具持久记忆（如 CLAUDE.md / AGENTS.md / 工具 memory）是否已记录这些环境项；仍无 → 只逐条执行 7.1 清单的「检测命令」做一次快速检查，不做全盘探测
-   c. 「必需」项全部满足 → 写回缓存（设备指纹、需求集指纹（见本步末规范片段）、每项结论与实际版本/路径、日期）后继续
+   c. 「必需」项全部满足 → 写回缓存（设备指纹、需求集指纹（见本步末规范片段）、每项结论与实际版本/路径、日期）后继续（写回失败只提示，不阻塞）
    d. 有必需项缺失 → **不要自行安装**。汇报缺失清单（附交出方已验证版本供参考），给三个选项等用户选择：**停止** / **安装后继续**（给出安装建议，用户装完重跑检测） / **用户提供环境路径**（记入缓存，后续优先于 PATH 探测）
    e. 7.1 清单不存在（旧版文档 / 非开发项目）→ 仅提示指纹差异，按普通接续继续
 
@@ -229,7 +227,7 @@ cd <项目目录> && claude -p "只输出 .handoff/HANDOFF.md 的各节一级标
 - **`!` 注入块是 Claude Code 原生行为**（bash 注入，发送前预执行）——与 ZCode 不同，这里**必须**用 `` !`cat` `` 预注入而不是让模型自己去读文件；两者不要写混。
 - **密钥只记位置不记值**：7.1 的 `env-var` 条目只记名称与存在性检测命令——HANDOFF.md 可能随 git 入库，写值等于泄密。
 - **跨设备后项目路径以接收侧 cwd 为准**：元数据「项目路径」是交出方视角，跨设备时通常不同；接手侧以当前工作目录与 `git status` 实测为准。
-- **指纹哈希不是安全边界**：只用于判定「同一设备+同一用户」；改 hostname、容器复制 machine-id 会误判为跨设备，后果仅是多一次环境检查。
+- **指纹哈希不是安全边界**：只用于判定「同一设备+同一用户」；改 hostname 或换用户名会判为跨设备，后果仅是多一次环境检查；反之两台同名主机+同名用户的计算机会被判为同一设备（交给任务中的缺环境兜底）。
 - **HANDOFF.md 是快照不是活文档**：Claude Code 侧工作推进后文档会过时，用户再次换工具时重跑本 skill 即可。
 - 反向导出（Claude Code → 其他工具）不在本 skill 范围；交接包格式保持工具中性，为未来扩展预留。
 - Claude Code 机制细节与 CLI 参数速查见 `references/claude-cheatsheet.md`。

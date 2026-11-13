@@ -63,8 +63,7 @@ ls -la
 
 ```bash
 # 设备指纹（接收方接续时据此判定本机/跨设备；哈希入文档，明文仅 OS/arch）
-fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"
-[ -r /etc/machine-id ] && fid_input="$(cat /etc/machine-id)|$fid_input"
+fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"   # 不读 /etc 等外部文件，沙箱可用
 if command -v sha256sum >/dev/null 2>&1; then
   fid=$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)
 elif command -v shasum >/dev/null 2>&1; then
@@ -177,7 +176,7 @@ cd <项目目录> && dsh headless "只输出 .handoff/HANDOFF.md 的各节一级
 - **权限默认偏保守**：headless 默认权限预设可能禁止写文件，交接任务涉及改动时显式加 `--permission-mode workspace-write`（必要时 `--add-dir <path>`）。
 - **密钥只记位置不记值**：7.1 的 `env-var` 条目只记名称与存在性检测命令——HANDOFF.md 可能随 git 入库，写值等于泄密。
 - **跨设备后项目路径以接收侧 cwd 为准**：元数据「项目路径」是交出方视角，跨设备时通常不同；接手侧以当前工作目录与 `git status` 实测为准。
-- **指纹哈希不是安全边界**：只用于判定「同一设备+同一用户」；改 hostname、容器复制 machine-id 会误判为跨设备，后果仅是多一次环境检查。
+- **指纹哈希不是安全边界**：只用于判定「同一设备+同一用户」；改 hostname 或换用户名会判为跨设备，后果仅是多一次环境检查；反之两台同名主机+同名用户的计算机会被判为同一设备（交给任务中的缺环境兜底）。
 - **HANDOFF.md 是快照不是活文档**：dsh 侧工作推进后文档会过时，用户再次换工具时重跑本 skill 即可。
 - 反向导出（dsh → 其他工具）不在本 skill 范围；交接包格式保持工具中性，为未来扩展预留。
 - DeepSeek Harness 机制细节与 CLI 参数速查见 `references/deepseek-cheatsheet.md`。

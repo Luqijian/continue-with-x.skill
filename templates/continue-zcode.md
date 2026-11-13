@@ -7,9 +7,8 @@ argument-hint: [补充指令]
 2. **设备判定**：从元数据表「设备指纹」行读交出方指纹（形如 `3f2a9c1b7d4e` · linux-x86_64），用同一算法算本机指纹：
 
    ```bash
-   fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"
-   [ -r /etc/machine-id ] && fid_input="$(cat /etc/machine-id)|$fid_input"
-   if command -v sha256sum >/dev/null 2>&1; then
+   fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"   # 不读 /etc 等外部文件，沙箱可用
+      if command -v sha256sum >/dev/null 2>&1; then
      fid=$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)
    elif command -v shasum >/dev/null 2>&1; then
      fid=$(printf '%s' "$fid_input" | shasum -a 256 | cut -c1-12)
@@ -22,9 +21,9 @@ argument-hint: [补充指令]
    - 一致 → 本机交接，跳到第 4 步（跳过环境扫描；任务中真遇缺失再处理）
    - 不一致或元数据无该行 → 跨设备/跨用户交接，执行第 3 步
 3. **跨设备环境检查**（仅当上一步判定不一致）：
-   a. 先查本机缓存 `~/.continue-with-x/env-cache.md`：有「当前设备指纹 + 本次需求集」记录则复用结论与用户此前提供的路径，不再扫描
+   a. 先用 Bash `cat ~/.continue-with-x/env-cache.md` 查本机缓存（避免外部目录读工具限制）：有「当前设备指纹 + 本次需求集」记录则复用结论与用户此前提供的路径，不再扫描；该路径不可读写（沙箱/权限拒绝）时视为未命中，且本次不写缓存，直接继续
    b. 未命中 → 查当前工具持久记忆（如 CLAUDE.md / AGENTS.md / 工具 memory）是否已记录这些环境项；仍无 → 只逐条执行 7.1 清单的「检测命令」做一次快速检查，不做全盘探测
-   c. 「必需」项全部满足 → 写回缓存（设备指纹、需求集指纹（见本步末规范片段）、每项结论与实际版本/路径、日期）后继续
+   c. 「必需」项全部满足 → 写回缓存（设备指纹、需求集指纹（见本步末规范片段）、每项结论与实际版本/路径、日期）后继续（写回失败只提示，不阻塞）
    d. 有必需项缺失 → **不要自行安装**。汇报缺失清单（附交出方已验证版本供参考），给三个选项等用户选择：**停止** / **安装后继续**（给出安装建议，用户装完重跑检测） / **用户提供环境路径**（记入缓存，后续优先于 PATH 探测）
    e. 7.1 清单不存在（旧版文档 / 非开发项目）→ 仅提示指纹差异，按普通接续继续
 
