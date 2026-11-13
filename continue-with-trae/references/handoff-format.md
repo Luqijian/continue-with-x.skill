@@ -24,7 +24,7 @@
 | 项目路径 | /abs/path/to/project |
 | git 分支 | feat/user-auth @ abc1234（3 个未提交文件） |
 | 交接轮次 | 第 1 轮（增量交接时继承上轮要点并注明） |
-| 设备指纹 | `3f2a9c1b7d4e` · linux-x64 |
+| 设备指纹 | `3f2a9c1b7d4e` · linux-x86_64 |
 
 ## 0. 给接手模型的指令
 
@@ -80,7 +80,7 @@
 | service | postgres | `pg_isready -h 127.0.0.1 -p 5432` | 端口 5432 | 是 |
 | env-var | DATABASE_URL | `test -n "${DATABASE_URL:-}"` | 只记名称不记值 | 是 |
 
-交出方已验证版本：node 22.14.0 / pnpm 10.1.2（linux-x64）
+交出方已验证版本：node 22.14.0 / pnpm 10.1.2（linux-x86_64）
 
 ### 7.2 工作流与环境事实
 
@@ -104,16 +104,27 @@
 ```bash
 fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"
 [ -r /etc/machine-id ] && fid_input="$(cat /etc/machine-id)|$fid_input"
-fid=$(printf '%s' "$fid_input" | sha256sum 2>/dev/null | cut -c1-12) \
-  || fid=$(printf '%s' "$fid_input" | shasum -a 256 2>/dev/null | cut -c1-12) \
-  || fid=$(printf '%s' "$fid_input" | python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:12])')
+if command -v sha256sum >/dev/null 2>&1; then
+  fid=$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)
+elif command -v shasum >/dev/null 2>&1; then
+  fid=$(printf '%s' "$fid_input" | shasum -a 256 | cut -c1-12)
+else
+  fid=$(printf '%s' "$fid_input" | python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:12])')
+fi
 ```
 
-- 文档只写哈希前 12 位 + OS/arch 明文（形如 `` `3f2a9c1b7d4e` · linux-x64 ``），**不写主机名/用户名**——文档可能随 git 入库。
+- 文档只写哈希前 12 位 + OS/arch 明文（形如 `` `3f2a9c1b7d4e` · linux-x86_64 ``），**不写主机名/用户名**——文档可能随 git 入库。
 - 哈希只用于判定「同一设备+同一用户」，不是安全边界；改 hostname、容器复制 machine-id 会误判为跨设备，后果仅是多一次环境检查。
 - 旧版交接文档无指纹行 → 按「未知」处理：有 7.1 清单则按跨设备流程检查一次，无清单则正常继续。
 
-**需求集指纹**（接收方缓存键）：取 7.1 每行「类型|需求|必需」，去除首尾空白后排序，换行拼接，sha256 取前 12 位。同一套需求在不同项目间可复用缓存。
+**需求集指纹**（接收方缓存键）：取 7.1 每行「类型|需求|必需」三列，去首尾空白、字典序排序，行间以**单个换行**连接、**末尾不加换行**，整体取 sha256 前 12 位。同一套需求在不同项目间可复用缓存。规范片段（必须逐字使用，否则缓存键不一致）：
+
+```bash
+reqid=$(sed -n '/^### 7\.1/,/^### 7\.2/p' .handoff/HANDOFF.md | grep '^|' \
+  | awk -F'|' '{for(i=2;i<=6;i++) gsub(/^[ \t]+|[ \t]+$/,"",$i)} $2!="类型" && $2!~/^-+$/ {print $2"|"$3"|"$6}' | sort \
+  | awk 'NR>1{printf "\n"} {printf "%s",$0}' \
+  | { command -v sha256sum >/dev/null 2>&1 && sha256sum || { command -v shasum >/dev/null 2>&1 && shasum -a 256 || python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'; }; } | cut -c1-12)
+```
 
 **本机缓存**：`~/.continue-with-x/env-cache.md`，按 `## device <指纹>` → `### req <需求集指纹>` 两级分节，记录每项结论、实际版本/路径与日期；用户提供的替代路径优先于 PATH 探测。缓存只在本机、不入库、不随同步工具走。
 

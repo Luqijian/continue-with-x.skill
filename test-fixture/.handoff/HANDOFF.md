@@ -7,7 +7,7 @@
 | 项目路径 | /home/transpeed/Development/continue-with-x.skill/test-fixture |
 | git 分支 | master @ b74167b（1 个未提交文件：src/debounce.ts） |
 | 交接轮次 | 第 1 轮 |
-| 设备指纹 | `dem0a5c1b7d4` · linux-x64（**演示值**） |
+| 设备指纹 | `dem0a5c1b7d4` · linux-x86_64（**演示值**） |
 
 ## 0. 给接手模型的指令
 
@@ -91,7 +91,7 @@ tests/          vitest 测试（仅 slugify.test.ts，debounce 测试待写）
 | runtime | node | `node -v` | ≥18 | 是 |
 | pkgmgr | npm | `npm -v` | 任意 | 是 |
 
-交出方已验证版本：node 22.x / npm 10.x（linux-x64）
+交出方已验证版本：node 22.x / npm 10.x（linux-x86_64）
 
 ### 7.2 工作流与环境事实
 
@@ -106,9 +106,13 @@ tests/          vitest 测试（仅 slugify.test.ts，debounce 测试待写）
 ```bash
 fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"
 [ -r /etc/machine-id ] && fid_input="$(cat /etc/machine-id)|$fid_input"
-fid=$(printf '%s' "$fid_input" | sha256sum 2>/dev/null | cut -c1-12) \
-  || fid=$(printf '%s' "$fid_input" | shasum -a 256 2>/dev/null | cut -c1-12) \
-  || fid=$(printf '%s' "$fid_input" | python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:12])')
+if command -v sha256sum >/dev/null 2>&1; then
+  fid=$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)
+elif command -v shasum >/dev/null 2>&1; then
+  fid=$(printf '%s' "$fid_input" | shasum -a 256 | cut -c1-12)
+else
+  fid=$(printf '%s' "$fid_input" | python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:12])')
+fi
 echo "$fid"
 ```
 

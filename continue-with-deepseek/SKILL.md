@@ -65,9 +65,14 @@ ls -la
 # 设备指纹（接收方接续时据此判定本机/跨设备；哈希入文档，明文仅 OS/arch）
 fid_input="$(hostname)|$(whoami)|$(uname -s)|$(uname -m)"
 [ -r /etc/machine-id ] && fid_input="$(cat /etc/machine-id)|$fid_input"
-printf '指纹=%s · %s-%s\n' "$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)" \
-  "$(uname -s | tr 'A-Z' 'a-z')" "$(uname -m)"
-# 无 sha256sum 的平台（如 macOS）按 handoff-format.md 回退 shasum / python3
+if command -v sha256sum >/dev/null 2>&1; then
+  fid=$(printf '%s' "$fid_input" | sha256sum | cut -c1-12)
+elif command -v shasum >/dev/null 2>&1; then
+  fid=$(printf '%s' "$fid_input" | shasum -a 256 | cut -c1-12)
+else
+  fid=$(printf '%s' "$fid_input" | python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:12])')
+fi
+printf '指纹=%s · %s-%s\n' "$fid" "$(uname -s | tr 'A-Z' 'a-z')" "$(uname -m)"
 
 # 交出方已验证版本（按项目技术栈选用，结果写进 7.1 末行）
 node -v 2>/dev/null; npm -v 2>/dev/null; pnpm -v 2>/dev/null; python3 --version 2>/dev/null
